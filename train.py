@@ -196,158 +196,159 @@ def main():
             config['name'] = '%s_%s_woDS' % (config['dataset'], config['arch'])
     os.makedirs('models/%s' % config['name'], exist_ok=True)
 
-    print('-' * 20)
-    for key in config:
-        print('%s: %s' % (key, config[key]))
-    print('-' * 20)
+    # print('-' * 20)
+    # for key in config:
+    #     print('%s: %s' % (key, config[key]))
+    # print('-' * 20)
 
-    with open('models/%s/config.yml' % config['name'], 'w') as f:
-        yaml.dump(config, f)
+    # with open('models/%s/config.yml' % config['name'], 'w') as f:
+    #     yaml.dump(config, f)
 
-    # define loss function (criterion)
-    if config['loss'] == 'BCEWithLogitsLoss':
-        criterion = nn.BCEWithLogitsLoss().cuda()
-    else:
-        criterion = losses.__dict__[config['loss']]().cuda()
+    # # define loss function (criterion)
+    # if config['loss'] == 'BCEWithLogitsLoss':
+    #     criterion = nn.BCEWithLogitsLoss().cuda()
+    # else:
+    #     criterion = losses.__dict__[config['loss']]().cuda()
 
-    cudnn.benchmark = True
+    # cudnn.benchmark = True
 
-    # create model
-    print("=> creating model %s" % config['arch'])
-    model = archs.__dict__[config['arch']](config['num_classes'],
-                                           config['input_channels'],
-                                           config['deep_supervision'])
+    # # create model
+    # print("=> creating model %s" % config['arch'])
+    # model = archs.__dict__[config['arch']](config['num_classes'],
+    #                                        config['input_channels'],
+    #                                        config['deep_supervision'])
 
-    model = model.cuda()
+    # model = model.cuda()
 
-    params = filter(lambda p: p.requires_grad, model.parameters())
-    if config['optimizer'] == 'Adam':
-        optimizer = optim.Adam(
-            params, lr=config['lr'], weight_decay=config['weight_decay'])
-    elif config['optimizer'] == 'SGD':
-        optimizer = optim.SGD(params, lr=config['lr'], momentum=config['momentum'],
-                              nesterov=config['nesterov'], weight_decay=config['weight_decay'])
-    else:
-        raise NotImplementedError
+    # params = filter(lambda p: p.requires_grad, model.parameters())
+    # if config['optimizer'] == 'Adam':
+    #     optimizer = optim.Adam(
+    #         params, lr=config['lr'], weight_decay=config['weight_decay'])
+    # elif config['optimizer'] == 'SGD':
+    #     optimizer = optim.SGD(params, lr=config['lr'], momentum=config['momentum'],
+    #                           nesterov=config['nesterov'], weight_decay=config['weight_decay'])
+    # else:
+    #     raise NotImplementedError
 
-    if config['scheduler'] == 'CosineAnnealingLR':
-        scheduler = lr_scheduler.CosineAnnealingLR(
-            optimizer, T_max=config['epochs'], eta_min=config['min_lr'])
-    elif config['scheduler'] == 'ReduceLROnPlateau':
-        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, factor=config['factor'], patience=config['patience'],
-                                                   verbose=1, min_lr=config['min_lr'])
-    elif config['scheduler'] == 'MultiStepLR':
-        scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[int(e) for e in config['milestones'].split(',')], gamma=config['gamma'])
-    elif config['scheduler'] == 'ConstantLR':
-        scheduler = None
-    else:
-        raise NotImplementedError
+    # if config['scheduler'] == 'CosineAnnealingLR':
+    #     scheduler = lr_scheduler.CosineAnnealingLR(
+    #         optimizer, T_max=config['epochs'], eta_min=config['min_lr'])
+    # elif config['scheduler'] == 'ReduceLROnPlateau':
+    #     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, factor=config['factor'], patience=config['patience'],
+    #                                                verbose=1, min_lr=config['min_lr'])
+    # elif config['scheduler'] == 'MultiStepLR':
+    #     scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[int(e) for e in config['milestones'].split(',')], gamma=config['gamma'])
+    # elif config['scheduler'] == 'ConstantLR':
+    #     scheduler = None
+    # else:
+    #     raise NotImplementedError
 
-    # Data loading code
-    img_ids = glob(os.path.join('inputs', config['dataset'], 'images', '*' + config['img_ext']))
-    img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
+    # # Data loading code
+    # img_ids = glob(os.path.join('inputs', config['dataset'], 'images', '*' + config['img_ext']))
+    # img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_ids]
 
-    train_img_ids, val_img_ids = train_test_split(img_ids, test_size=0.2, random_state=41)
+    # train_img_ids, val_img_ids = train_test_split(img_ids, test_size=0.2, random_state=41)
 
-    train_transform = Compose([
-        transforms.RandomRotate90(),
-        transforms.Flip(),
-        OneOf([
-            transforms.HueSaturationValue(),
-            transforms.RandomBrightness(),
-            transforms.RandomContrast(),
-        ], p=1),
-        transforms.Resize(config['input_h'], config['input_w']),
-        transforms.Normalize(),
-    ])
+    # train_transform = Compose([
+    #     transforms.RandomRotate90(),
+    #     transforms.Flip(),
+    #     OneOf([
+    #         transforms.HueSaturationValue(),
+    #         transforms.RandomBrightness(),
+    #         transforms.RandomContrast(),
+    #     ], p=1),
+    #     transforms.Resize(config['input_h'], config['input_w']),
+    #     transforms.Normalize(),
+    # ])
 
-    val_transform = Compose([
-        transforms.Resize(config['input_h'], config['input_w']),
-        transforms.Normalize(),
-    ])
+    # val_transform = Compose([
+    #     transforms.Resize(config['input_h'], config['input_w']),
+    #     transforms.Normalize(),
+    # ])
 
-    train_dataset = Dataset(
-        img_ids=train_img_ids,
-        img_dir=os.path.join('inputs', config['dataset'], 'images'),
-        mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
-        img_ext=config['img_ext'],
-        mask_ext=config['mask_ext'],
-        num_classes=config['num_classes'],
-        transform=train_transform)
-    val_dataset = Dataset(
-        img_ids=val_img_ids,
-        img_dir=os.path.join('inputs', config['dataset'], 'images'),
-        mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
-        img_ext=config['img_ext'],
-        mask_ext=config['mask_ext'],
-        num_classes=config['num_classes'],
-        transform=val_transform)
+    # train_dataset = Dataset(
+    #     img_ids=train_img_ids,
+    #     img_dir=os.path.join('inputs', config['dataset'], 'images'),
+    #     mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
+    #     img_ext=config['img_ext'],
+    #     mask_ext=config['mask_ext'],
+    #     num_classes=config['num_classes'],
+    #     transform=train_transform)
+    # val_dataset = Dataset(
+    #     img_ids=val_img_ids,
+    #     img_dir=os.path.join('inputs', config['dataset'], 'images'),
+    #     mask_dir=os.path.join('inputs', config['dataset'], 'masks'),
+    #     img_ext=config['img_ext'],
+    #     mask_ext=config['mask_ext'],
+    #     num_classes=config['num_classes'],
+    #     transform=val_transform)
 
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset,
-        batch_size=config['batch_size'],
-        shuffle=True,
-        num_workers=config['num_workers'],
-        drop_last=True)
-    val_loader = torch.utils.data.DataLoader(
-        val_dataset,
-        batch_size=config['batch_size'],
-        shuffle=False,
-        num_workers=config['num_workers'],
-        drop_last=False)
+    # train_loader = torch.utils.data.DataLoader(
+    #     train_dataset,
+    #     batch_size=config['batch_size'],
+    #     shuffle=True,
+    #     num_workers=config['num_workers'],
+    #     drop_last=True)
+    # val_loader = torch.utils.data.DataLoader(
+    #     val_dataset,
+    #     batch_size=config['batch_size'],
+    #     shuffle=False,
+    #     num_workers=config['num_workers'],
+    #     drop_last=False)
 
-    log = OrderedDict([
-        ('epoch', []),
-        ('lr', []),
-        ('loss', []),
-        ('iou', []),
-        ('val_loss', []),
-        ('val_iou', []),
-    ])
+    # log = OrderedDict([
+    #     ('epoch', []),
+    #     ('lr', []),
+    #     ('loss', []),
+    #     ('iou', []),
+    #     ('val_loss', []),
+    #     ('val_iou', []),
+    # ])
 
-    best_iou = 0
-    trigger = 0
-    for epoch in range(config['epochs']):
-        print('Epoch [%d/%d]' % (epoch, config['epochs']))
+    # best_iou = 0
+    # trigger = 0
+    # for epoch in range(config['epochs']):
+    #     print('Epoch [%d/%d]' % (epoch, config['epochs']))
 
-        # train for one epoch
-        train_log = train(config, train_loader, model, criterion, optimizer)
-        # evaluate on validation set
-        val_log = validate(config, val_loader, model, criterion)
+    #     # train for one epoch
+    #     train_log = train(config, train_loader, model, criterion, optimizer)
+    #     # evaluate on validation set
+    #     val_log = validate(config, val_loader, model, criterion)
 
-        if config['scheduler'] == 'CosineAnnealingLR':
-            scheduler.step()
-        elif config['scheduler'] == 'ReduceLROnPlateau':
-            scheduler.step(val_log['loss'])
+    #     if config['scheduler'] == 'CosineAnnealingLR':
+    #         scheduler.step()
+    #     elif config['scheduler'] == 'ReduceLROnPlateau':
+    #         scheduler.step(val_log['loss'])
 
-        print('loss %.4f - iou %.4f - val_loss %.4f - val_iou %.4f'
-              % (train_log['loss'], train_log['iou'], val_log['loss'], val_log['iou']))
+    #     print('loss %.4f - iou %.4f - val_loss %.4f - val_iou %.4f'
+    #           % (train_log['loss'], train_log['iou'], val_log['loss'], val_log['iou']))
 
-        log['epoch'].append(epoch)
-        log['lr'].append(config['lr'])
-        log['loss'].append(train_log['loss'])
-        log['iou'].append(train_log['iou'])
-        log['val_loss'].append(val_log['loss'])
-        log['val_iou'].append(val_log['iou'])
+    #     log['epoch'].append(epoch)
+    #     log['lr'].append(config['lr'])
+    #     log['loss'].append(train_log['loss'])
+    #     log['iou'].append(train_log['iou'])
+    #     log['val_loss'].append(val_log['loss'])
+    #     log['val_iou'].append(val_log['iou'])
 
-        pd.DataFrame(log).to_csv('models/%s/log.csv' %
-                                 config['name'], index=False)
+    #     pd.DataFrame(log).to_csv('models/%s/log.csv' %
+    #                              config['name'], index=False)
 
-        trigger += 1
+    #     trigger += 1
 
-        if val_log['iou'] > best_iou:
-            torch.save(model.state_dict(), 'models/%s/model.pth' %
-                       config['name'])
-            best_iou = val_log['iou']
-            print("=> saved best model")
-            trigger = 0
+    #     if val_log['iou'] > best_iou:
+    #         torch.save(model.state_dict(), 'models/%s/model.pth' %
+    #                    config['name'])
+    #         best_iou = val_log['iou']
+    #         print("=> saved best model")
+    #         trigger = 0
 
-        # early stopping
-        if config['early_stopping'] >= 0 and trigger >= config['early_stopping']:
-            print("=> early stopping")
-            break
+    #     # early stopping
+    #     if config['early_stopping'] >= 0 and trigger >= config['early_stopping']:
+    #         print("=> early stopping")
+    #         break
 
-        torch.cuda.empty_cache()
+    #     torch.cuda.empty_cache()
+    print(config)
 
 
 if __name__ == '__main__':
